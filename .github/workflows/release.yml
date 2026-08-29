@@ -36,11 +36,25 @@ jobs:
         id: version
         run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
 
-      - name: Build patches
+      # Order matters: buildAndroid merges classes.dex into the .mpp by mutating the jar output
+      # in place. A later Gradle invocation that re-runs :patches:jar (e.g. through generatePatchesList)
+      # rewrites the .mpp WITHOUT the dex, which makes the Morphe Manager unable to load any patches.
+      - name: Build patch list
+        run: ./gradlew :patches:generatePatchesList -Pversion=${{ steps.version.outputs.version }} --no-daemon
+
+      - name: Build Android bundle
         run: ./gradlew :patches:buildAndroid -Pversion=${{ steps.version.outputs.version }} --no-daemon
 
-      - name: Generate patch list
-        run: ./gradlew :patches:generatePatchesList -Pversion=${{ steps.version.outputs.version }} --no-daemon
+      - name: Copy bundle to dist
+        run: |
+          mkdir -p dist
+          cp "patches/build/libs/patches-${{ steps.version.outputs.version }}.mpp" \
+             "dist/patches-${{ steps.version.outputs.version }}.mpp"
+
+      - name: Verify DEX is bundled
+        run: |
+          unzip -l "dist/patches-${{ steps.version.outputs.version }}.mpp" | grep -q "classes.dex"
+          echo "classes.dex verified in dist/patches-${{ steps.version.outputs.version }}.mpp"
 
       - name: Update metadata and README
         run: |
@@ -75,4 +89,4 @@ jobs:
         with:
           tag_name: ${{ github.ref_name }}
           name: "X Patches for Morphe ${{ github.ref_name }}"
-          files: patches/build/libs/patches-${{ steps.version.outputs.version }}.mpp
+          files: dist/patches-${{ steps.version.outputs.version }}.mpp
