@@ -65,7 +65,7 @@ jobs:
           git add patches-list.json patches-bundle.json README.md
           if ! git diff --cached --quiet; then
             git commit -m "chore: update release metadata for ${GITHUB_REF_NAME} [skip ci]"
-            git push
+            git push origin HEAD:main
           fi
 
       - name: Create release
