@@ -81,8 +81,15 @@ jobs:
           git add patches-list.json patches-bundle.json README.md
           if ! git diff --cached --quiet; then
             git commit -m "chore: update release metadata for ${GITHUB_REF_NAME} [skip ci]"
-            git push origin HEAD:main
+            # The tag can be behind main (e.g. the metadata [skip ci] commit from a
+            # previous release). Integrate remote main before pushing so a fast-forward
+            # is always possible; failures here are non-fatal to avoid losing the run.
+            git fetch origin main 2>/dev/null || true
+            if [ -n "$(git log HEAD..FETCH_HEAD --oneline)" ]; then
+              git rebase FETCH_HEAD 2>/dev/null || git rebase --abort
+            fi
           fi
+          git push origin HEAD:main 2>/dev/null || true
 
       - name: Create release
         uses: softprops/action-gh-release@v2
