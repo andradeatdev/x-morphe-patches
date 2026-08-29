@@ -49,10 +49,12 @@ jobs:
           # Ensure the patches-list version always matches the release tag.
           jq --arg v "$VER" '.version=$v' patches-list.json > tmp && mv tmp patches-list.json
           # Write the bundle metadata the Morphe Manager expects.
+          # created_at must NOT carry a timezone suffix (e.g. trailing Z): the manager deserializes
+          # it as kotlinx.datetime.LocalDateTime and a 'Z' makes the whole bundle source fail.
           jq -n \
             --arg v "$VER" \
             --arg dl "https://github.com/${REPO}/releases/download/${GITHUB_REF_NAME}/patches-${VER}.mpp" \
-            --arg ca "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg ca "$(date +%Y-%m-%dT%H:%M:%S)" \
             '{version:$v, created_at:$ca, description:"", download_url:$dl, signature_download_url:""}' \
             > patches-bundle.json
           # Update the patches section of the README.
