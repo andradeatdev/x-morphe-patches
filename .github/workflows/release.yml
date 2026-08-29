@@ -73,4 +73,4 @@ jobs:
         with:
           tag_name: ${{ github.ref_name }}
           name: "X Patches for Morphe ${{ github.ref_name }}"
-          files: patches/build/libs/patches-*.mpp
+          files: patches/build/libs/patches-${{ steps.version.outputs.version }}.mpp
