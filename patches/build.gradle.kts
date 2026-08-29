@@ -1,14 +1,13 @@
-group = "app.template"
+group = "app.xpatches"
 
 patches {
-    // TODO: Update this section with your project details.
     about {
-        name = "UserXYZ Patches"
-        description = "Patches for apps I like"
-        source = "git@github.com:UserXYZ/morphe-patches.git"
-        author = "Awesome dev"
+        name = "X Patches for Morphe"
+        description = "Fixes sensitive media handling in Twitter/X for use with the Morphe patcher."
+        source = "https://github.com/andradeatdev/x-morphe-patches.git"
+        author = "andradeatdev"
         contact = "na"
-        website = "na"
+        website = "https://github.com/andradeatdev/x-morphe-patches"
         license = "GPLv3"
     }
 }

@@ -3,16 +3,23 @@ name: Release
 on:
   workflow_dispatch:
   push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   release:
     name: Release
-    permissions:
-      contents: write
-      packages: write
-      id-token: write
-      attestations: write
     runs-on: ubuntu-latest
+    env:
+      GITHUB_ACTOR: ${{ github.actor }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -25,34 +32,45 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v7
+      - name: Read version from tag
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Build patches
+        run: ./gradlew :patches:buildAndroid -Pversion=${{ steps.version.outputs.version }} --no-daemon
+
+      - name: Generate patch list
+        run: ./gradlew :patches:generatePatchesList -Pversion=${{ steps.version.outputs.version }} --no-daemon
+
+      - name: Update metadata and README
+        run: |
+          VER="${{ steps.version.outputs.version }}"
+          REPO="${{ github.repository }}"
+          # Ensure the patches-list version always matches the release tag.
+          jq --arg v "$VER" '.version=$v' patches-list.json > tmp && mv tmp patches-list.json
+          # Write the bundle metadata the Morphe Manager expects.
+          jq -n \
+            --arg v "$VER" \
+            --arg dl "https://github.com/${REPO}/releases/download/${GITHUB_REF_NAME}/patches-${VER}.mpp" \
+            --arg ca "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            '{version:$v, created_at:$ca, description:"", download_url:$dl, signature_download_url:""}' \
+            > patches-bundle.json
+          # Update the patches section of the README.
+          python3 .github/scripts/generate_patches_readme.py "$REPO" "$GITHUB_REF_NAME" patches-list.json README.md
+
+      - name: Commit generated files
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add patches-list.json patches-bundle.json README.md
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: update release metadata for ${GITHUB_REF_NAME} [skip ci]"
+            git push
+          fi
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
         with:
-          node-version: 'lts/*'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm install
-
-      # Semantic release runs its own Gradle build command.
-      # Only dev and main branch will generate a release as specified by .releaserc
-      - name: Release
-        uses: cycjimmy/semantic-release-action@v6
-        id: release
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Attest
-        if: steps.release.outputs.new_release_published == 'true'
-        uses: actions/attest-build-provenance@v4
-        with:
-          subject-name: 'Morphe Patches ${{ steps.release.outputs.new_release_git_tag }}'
-          subject-path: patches/build/libs/patches-*.mpp
-
-      # Always verify compilation when semantic-release did not publish a release.
-      # This covers non-main/dev branches, chore commits, docs commits, etc.
-      - name: Verify project compiles
-        if: steps.release.outputs.new_release_published != 'true'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: ./gradlew :patches:buildAndroid clean --no-daemon
+          tag_name: ${{ github.ref_name }}
+          name: "X Patches for Morphe ${{ github.ref_name }}"
+          files: patches/build/libs/patches-*.mpp
