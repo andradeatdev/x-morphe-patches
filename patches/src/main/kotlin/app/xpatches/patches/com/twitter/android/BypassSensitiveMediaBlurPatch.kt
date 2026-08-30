@@ -32,7 +32,7 @@ val bypassSensitiveMediaBlurPatch = bytecodePatch(
         // 1. Procuramos por QUALQUER método no APK que contenha a string fixa do toString()
         // Isso vai nos dar a classe exata do MediaVisibilityResults, não importa o nome dela (h, z, x, etc.)
         val matches = Fingerprint(
-            customMatch = { method ->
+            custom = { method, _ ->
                 method.implementation?.instructions?.any { instruction ->
                     instruction.toString().contains("MediaVisibilityResults(blurImageInterstitial=")
                 } == true
