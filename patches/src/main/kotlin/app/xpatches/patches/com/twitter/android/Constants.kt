@@ -11,10 +11,10 @@ object Constants {
         apkFileType = ApkFileType.APK,
         appIconColor = 0x000000,
         targets = listOf(
-            // Exact version these patches were developed and validated against.
+            // Verified against these exact X versions. Lookups are done via fingerprints,
+            // so missing/ambiguous anchors are skipped gracefully instead of failing the apply.
+            AppTarget(version = "12.7.1"),
             AppTarget(version = "12.19.1"),
-            // Any other version is experimental.
-            AppTarget(version = null, isExperimental = true),
         ),
     )
 }
