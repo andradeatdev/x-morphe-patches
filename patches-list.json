@@ -1,6 +1,6 @@
 {
   "NOTE": "Do NOT manually edit this file. This file is automatically updated when the release workflow (release.yml) runs. Manually editing this file can break your releases and break third party tools that use this file.",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "patches": [
     {
       "name": "Always display sensitive media",
@@ -17,16 +17,16 @@
           "signatures": null,
           "targets": [
             {
-              "version": "12.19.1",
+              "version": "12.7.1",
               "versionCodes": null,
               "isExperimental": false,
               "minSdk": null,
               "description": null
             },
             {
-              "version": null,
+              "version": "12.19.1",
               "versionCodes": null,
-              "isExperimental": true,
+              "isExperimental": false,
               "minSdk": null,
               "description": null
             }
@@ -50,16 +50,16 @@
           "signatures": null,
           "targets": [
             {
-              "version": "12.19.1",
+              "version": "12.7.1",
               "versionCodes": null,
               "isExperimental": false,
               "minSdk": null,
               "description": null
             },
             {
-              "version": null,
+              "version": "12.19.1",
               "versionCodes": null,
-              "isExperimental": true,
+              "isExperimental": false,
               "minSdk": null,
               "description": null
             }
@@ -83,16 +83,16 @@
           "signatures": null,
           "targets": [
             {
-              "version": "12.19.1",
+              "version": "12.7.1",
               "versionCodes": null,
               "isExperimental": false,
               "minSdk": null,
               "description": null
             },
             {
-              "version": null,
+              "version": "12.19.1",
               "versionCodes": null,
-              "isExperimental": true,
+              "isExperimental": false,
               "minSdk": null,
               "description": null
             }
