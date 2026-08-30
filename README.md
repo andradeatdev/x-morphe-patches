@@ -26,9 +26,9 @@ https://morphe.software/add-source?github=andradeatdev/x-morphe-patches
 ## 🩹 Patches list
 
 <!-- PATCHES_START EXPANDED -->
-> **[v1.0.3](https://github.com/andradeatdev/x-morphe-patches/releases/tag/v1.0.3)**&nbsp;&nbsp;•&nbsp;&nbsp;`v1.0.3`&nbsp;&nbsp;•&nbsp;&nbsp;3 patches total
+> **[v1.0.4](https://github.com/andradeatdev/x-morphe-patches/releases/tag/v1.0.4)**&nbsp;&nbsp;•&nbsp;&nbsp;`v1.0.4`&nbsp;&nbsp;•&nbsp;&nbsp;1 patches total
 <details open>
-<summary>📦 X (Twitter)&nbsp;&nbsp;•&nbsp;&nbsp;3 patches</summary>
+<summary>📦 X (Twitter)&nbsp;&nbsp;•&nbsp;&nbsp;1 patch</summary>
 <br>
 
 **🎯 Supported versions:**
@@ -38,9 +38,7 @@ https://morphe.software/add-source?github=andradeatdev/x-morphe-patches
 
 | 💊&nbsp;Patch | 📜&nbsp;Description | ⚙️&nbsp;Options |
 |----------|----------------|-----------|
-| [Always display sensitive media](#always-display-sensitive-media) | Forces AccountSettings.getDisplaySensitiveMedia to always return true. |  |
 | [Bypass sensitive media blur](#bypass-sensitive-media-blur) | Skips the blur/age-gate interstitial in Compose media, showing sensitive media directly. |  |
-| [Disable legacy sensitive media blur](#disable-legacy-sensitive-media-blur) | Forces the legacy 'needs blur' predicate to always return false. |  |
 
 </details>
 
