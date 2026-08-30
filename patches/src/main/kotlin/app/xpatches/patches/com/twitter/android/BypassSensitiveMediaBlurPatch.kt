@@ -10,18 +10,6 @@ import java.util.logging.Logger
 private val bypassSensitiveMediaBlurLogger =
     Logger.getLogger("app.xpatches.patches.com.twitter.android.BypassSensitiveMediaBlurPatch")
 
-/**
- * Bypasses the blur/age-gate interstitial X shows for sensitive media.
- *
- * Instead of anchoring on the obfuscated Compose renderer `com/x/sensitivemedia/impl/u`.c (which
- * is renamed per release), this patches the one stable choke point every render path reads:
- * `com/x/models/interstitial/MediaVisibilityResults.getBlurImageInterstitial()`. Its body is
- * replaced with `const/4 v0, 0x0; return-object v0`, so every caller (Compose timeline, post
- * detail, legacy views) receives a null interstitial and skips the blur/age gate.
- *
- * The match is by stable, unobfuscated name + return type. When the method is missing or
- * ambiguous in a given APK, the patch logs and skips instead of failing the whole apply.
- */
 val bypassSensitiveMediaBlurPatch = bytecodePatch(
     name = "Bypass sensitive media blur",
     description = "Skips the blur/age-gate interstitial in Compose media, showing sensitive media directly.",
@@ -29,65 +17,75 @@ val bypassSensitiveMediaBlurPatch = bytecodePatch(
     compatibleWith(Constants.COMPATIBILITY_X)
 
     execute {
-        // 1. Procuramos por QUALQUER método no APK que contenha a string fixa do toString()
-        // Isso vai nos dar a classe exata do MediaVisibilityResults, não importa o nome dela (h, z, x, etc.)
+        // 1. Procuramos pela string única do serializador da imagem de desfoque
         val matches = Fingerprint(
             custom = { method, _ ->
                 method.implementation?.instructions?.any { instruction ->
-                    instruction.toString().contains("MediaVisibilityResults(blurImageInterstitial=")
+                    // Varre o pool de strings procurando pelo identificador único do modelo
+                    instruction.toString().contains("com.x.models.interstitial.BlurImageInterstitial")
                 } == true
             }
         ).matchAllOrNull() ?: emptyList()
 
         if (matches.isEmpty()) {
             bypassSensitiveMediaBlurLogger.warning(
-                "Could not find MediaVisibilityResults via toString() fingerprint; skipping patch",
+                "Serializer string not found; skipping patch",
             )
             return@execute
         }
 
-        // 2. Pegamos a classe que foi encontrada (ex: com/x/models/interstitial/h)
-        val targetClass = matches.first().method.definingClass
+        // 2. A partir do serializador, sabemos que a classe correspondente é do pacote interstitial
+        // Vamos buscar dinamicamente pelo construtor da classe de resultados que recebe o objeto de desfoque.
+        // Como vimos no arquivo h.java, o construtor recebe o tipo 'e' (BlurImageInterstitial).
+        // Para tornar genérico: buscamos um construtor (<init>) no pacote 'com/x/models/interstitial'
+        // que receba exatamente um objeto daquela mesma pasta como parâmetro e retorne void (V).
 
-        // 3. Agora localizamos o construtor (<init>) dessa classe específica
-        val constructorMatch = Fingerprint(
+        val allConstructors = Fingerprint(
             name = "<init>",
-            definingClass = targetClass
-        ).matchAllOrNull()?.firstOrNull()
+            returnType = "V"
+        ).matchAllOrNull() ?: emptyList()
 
-        if (constructorMatch == null) {
+        // Filtra pelo padrão exato do construtor da classe MediaVisibilityResults (h.java)
+        val targetConstructor = allConstructors.firstOrNull { match ->
+            val method = match.method
+            val isTargetPackage = method.definingClass.startsWith("com/x/models/interstitial/")
+            val params = method.parameterTypes
+
+            // O construtor deve ter exatamente 1 parâmetro, e esse parâmetro deve ser uma classe do mesmo pacote (o objeto e)
+            isTargetPackage && params.size == 1 && params[0].startsWith("Lcom/x/models/interstitial/")
+        }
+
+        if (targetConstructor == null) {
             bypassSensitiveMediaBlurLogger.warning(
-                "Constructor for $targetClass not found; skipping patch",
+                "Target MediaVisibilityResults constructor not found; skipping patch",
             )
             return@execute
         }
 
-        constructorMatch.method.apply {
+        targetConstructor.method.apply {
             val implementation = implementation
             if (implementation == null) {
                 bypassSensitiveMediaBlurLogger.warning(
-                    "Constructor for $targetClass has no body; skipping",
+                    "Constructor has no body; skipping",
                 )
             } else {
-                // 4. Analisamos dinamicamente o bytecode do construtor para descobrir 
-                // o nome do campo (hoje 'a') e o tipo do campo (hoje 'Lcom/x/models/interstitial/e;')
-                // O construtor do Kotlin Data Class termina salvando o parâmetro no campo usando 'iput-object'
+                // 3. Pegamos a primeira instrução iput-object que joga o parâmetro no campo da classe
                 val iputInstruction = instructions.firstOrNull { it.toString().contains("iput-object") }
-                
+
                 if (iputInstruction == null) {
                     bypassSensitiveMediaBlurLogger.warning(
-                        "Could not find field assignment in constructor; skipping patch",
+                        "iput-object instruction not found in constructor; skipping",
                     )
                     return@execute
                 }
 
-                // Extraímos a assinatura exata do campo diretamente da instrução original do Twitter (ex: Lcom/x/models/interstitial/h;->a:Lcom/x/models/interstitial/e;)
+                // Extrai a assinatura do campo de forma limpa (ex: Lcom/x/models/interstitial/h;->a:Lcom/x/models/interstitial/e;)
                 val fieldSignature = iputInstruction.toString().substringAfter("iput-object ").substringBefore(",")
 
-                // 5. Substituímos o corpo do construtor aplicando o nulo dinamicamente baseado na assinatura extraída
+                // 4. Substitui as instruções do construtor para forçar o campo a salvar null
                 removeInstructions(0, instructions.size)
                 addInstructions(
-                    0, 
+                    0,
                     """
                     .registers 3
                     const/4 v0, 0x0
@@ -95,9 +93,9 @@ val bypassSensitiveMediaBlurPatch = bytecodePatch(
                     return-void
                     """.trimIndent()
                 )
-                
+
                 bypassSensitiveMediaBlurLogger.info(
-                    "Successfully dynamically patched $targetClass to always nullify the blur interstitial.",
+                    "Successfully robustly patched MediaVisibilityResults via serializer mapping.",
                 )
             }
         }
