@@ -29,34 +29,77 @@ val bypassSensitiveMediaBlurPatch = bytecodePatch(
     compatibleWith(Constants.COMPATIBILITY_X)
 
     execute {
+        // 1. Procuramos por QUALQUER método no APK que contenha a string fixa do toString()
+        // Isso vai nos dar a classe exata do MediaVisibilityResults, não importa o nome dela (h, z, x, etc.)
         val matches = Fingerprint(
-            name = "getBlurImageInterstitial",
-            returnType = "Lcom/x/models/interstitial/BlurImageInterstitial;",
+            customMatch = { method ->
+                method.implementation?.instructions?.any { instruction ->
+                    instruction.toString().contains("MediaVisibilityResults(blurImageInterstitial=")
+                } == true
+            }
         ).matchAllOrNull() ?: emptyList()
 
-        when (matches.size) {
-            0 -> bypassSensitiveMediaBlurLogger.warning(
-                "getBlurImageInterstitial not found; skipping Bypass sensitive media blur",
+        if (matches.isEmpty()) {
+            bypassSensitiveMediaBlurLogger.warning(
+                "Could not find MediaVisibilityResults via toString() fingerprint; skipping patch",
             )
+            return@execute
+        }
 
-            1 -> matches[0].method.apply {
-                val implementation = implementation
-                if (implementation == null) {
+        // 2. Pegamos a classe que foi encontrada (ex: com/x/models/interstitial/h)
+        val targetClass = matches.first().method.definingClass
+
+        // 3. Agora localizamos o construtor (<init>) dessa classe específica
+        val constructorMatch = Fingerprint(
+            name = "<init>",
+            definingClass = targetClass
+        ).matchAllOrNull()?.firstOrNull()
+
+        if (constructorMatch == null) {
+            bypassSensitiveMediaBlurLogger.warning(
+                "Constructor for $targetClass not found; skipping patch",
+            )
+            return@execute
+        }
+
+        constructorMatch.method.apply {
+            val implementation = implementation
+            if (implementation == null) {
+                bypassSensitiveMediaBlurLogger.warning(
+                    "Constructor for $targetClass has no body; skipping",
+                )
+            } else {
+                // 4. Analisamos dinamicamente o bytecode do construtor para descobrir 
+                // o nome do campo (hoje 'a') e o tipo do campo (hoje 'Lcom/x/models/interstitial/e;')
+                // O construtor do Kotlin Data Class termina salvando o parâmetro no campo usando 'iput-object'
+                val iputInstruction = instructions.firstOrNull { it.toString().contains("iput-object") }
+                
+                if (iputInstruction == null) {
                     bypassSensitiveMediaBlurLogger.warning(
-                        "getBlurImageInterstitial has no body in $definingClass.$name; skipping",
+                        "Could not find field assignment in constructor; skipping patch",
                     )
-                } else {
-                    removeInstructions(0, instructions.size)
-                    addInstructions(0, "const/4 v0, 0x0\nreturn-object v0")
-                    bypassSensitiveMediaBlurLogger.info(
-                        "Patched $definingClass.$name to always return a null BlurImageInterstitial",
-                    )
+                    return@execute
                 }
-            }
 
-            else -> bypassSensitiveMediaBlurLogger.warning(
-                "getBlurImageInterstitial is ambiguous (${matches.size} matches); skipping Bypass sensitive media blur",
-            )
+                // Extraímos a assinatura exata do campo diretamente da instrução original do Twitter (ex: Lcom/x/models/interstitial/h;->a:Lcom/x/models/interstitial/e;)
+                val fieldSignature = iputInstruction.toString().substringAfter("iput-object ").substringBefore(",")
+
+                // 5. Substituímos o corpo do construtor aplicando o nulo dinamicamente baseado na assinatura extraída
+                removeInstructions(0, instructions.size)
+                addInstructions(
+                    0, 
+                    """
+                    .registers 3
+                    const/4 v0, 0x0
+                    iput-object v0, p0, $fieldSignature
+                    return-void
+                    """.trimIndent()
+                )
+                
+                bypassSensitiveMediaBlurLogger.info(
+                    "Successfully dynamically patched $targetClass to always nullify the blur interstitial.",
+                )
+            }
         }
     }
 }
