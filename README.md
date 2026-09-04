@@ -26,15 +26,15 @@ https://morphe.software/add-source?github=andradeatdev/x-morphe-patches
 ## 🩹 Patches list
 
 <!-- PATCHES_START EXPANDED -->
-> **[v1.0.5](https://github.com/andradeatdev/x-morphe-patches/releases/tag/v1.0.5)**&nbsp;&nbsp;•&nbsp;&nbsp;`v1.0.5`&nbsp;&nbsp;•&nbsp;&nbsp;1 patches total
+> **[v1.0.6](https://github.com/andradeatdev/x-morphe-patches/releases/tag/v1.0.6)**&nbsp;&nbsp;•&nbsp;&nbsp;`v1.0.6`&nbsp;&nbsp;•&nbsp;&nbsp;1 patches total
 <details open>
 <summary>📦 X (Twitter)&nbsp;&nbsp;•&nbsp;&nbsp;1 patch</summary>
 <br>
 
 **🎯 Supported versions:**
 
-| 12.7.1 | 12.19.1 |
-| :---: | :---: |
+| 12.19.1 |
+| :---: |
 
 | 💊&nbsp;Patch | 📜&nbsp;Description | ⚙️&nbsp;Options |
 |----------|----------------|-----------|
